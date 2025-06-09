@@ -14,14 +14,128 @@ More Info - https://communications.dtcc.com/dtcc-ai-hackathon-registration-17810
 
 Commit Early & Commit Often!!!
 
-## Project Name
+Absolutely — here’s a clean, well-structured, hackathon-ready comprehensive README for your project Bytes, incorporating everything you’ve shared so far.
+
+You can paste this into your README.md file directly:
+
+---
+
+# Bytes – DTCC AI Hackathon 2025 Submission
+
+An AI-powered financial insight assistant that enables users to query PDFs (like annual reports) using natural language.
+Built using LangChain, PGVector, FastAPI, and Python agents, Bytes extracts tables, text, and embedded visuals from PDFs and responds with structured, explainable answers.
+
+---
+
+## Problem Statement
+Self-Service Investigation (Chat NLP): Enable users to interact with data and perform investigations or analyses through conversational interfaces. Illustrative examples include ingesting corporate action data from multiple sources to extract key details, chatbot to provide market intelligence using capital markets data, and generate risk assessment reports from financial statements and regulatory filings.
+
+---
+
+## Tech Stack
+
+| Layer          | Tools/Frameworks                            |
+| -------------- | ------------------------------------------- |
+| Language Model | LangChain                                   |
+| Vector Store   | PostgreSQL with pgvector                    |
+| Embeddings     | HuggingFace (MiniLM-L6-v2)                  |
+| Backend API    | FastAPI + JWT Auth                          |
+| PDF Parsing    | PyMuPDF (fitz), Camelot                     |
+| Memory         | Custom LangChain Memory (PostgreSQL-backed) |
+| CLI Tooling    | Typer + Rich                                |
+| Packaging      | PEP 621 (pyproject.toml) via Hatch          |
+
+---
+
+## Team Composition
+
+| Name         | Role                                       | Affiliation                               |
+| ------------ | ------------------------------------------ | ----------------------------------------- |
+| Ashika K     | Team Lead, AWS Integration & Risk Analysis | Chennai Institute of Technology (AI & DS) |
+| Deepak J     | LLM Fine-Tuning & Agent Support            | Chennai Institute of Technology (AI & DS) |
+| Gokul K      | AI Agent & Backend Development             | Chennai Institute of Technology (AI & DS) |
+| Priya Reka S | Frontend Development                       | Chennai Institute of Technology (ECE)     |
+| Srisun S     | QA Engineering & Development Support       | Zoho Corporation                          |
+| Darshini PG  | QA Engineering & Development Support       | Zoho Corporation                          |
 
 
-### Project Details
 
+---
 
-### Team Information
+##  Local Setup
 
+### 1. Clone the Repo & Create a Virtual Environment
+
+```bash
+git clone https://github.com/your-team/bytes.git
+cd bytes
+uv venv  # or python -m venv .venv
+uv sync  # or pip install -e .
+```
+
+---
+
+### 2. Setup .env
+
+Create a `.env` file at the project root:
+
+```env
+DB_USER=postgres
+DB_PASSWORD=2005_Gokul
+DB_NAME=vectordb
+DB_HOST=localhost:5435
+SECRET_KEY=supersecretkey
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+```
+
+---
+
+### 3. Start PostgreSQL with pgvector via Docker
+
+```bash
+docker run -d \
+  --name bytes-pg \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=2005_Gokul \
+  -e POSTGRES_DB=vectordb \
+  -p 5435:5432 \
+  ankane/pgvector
+```
+
+---
+
+### 4. Initialize the Database
+
+```bash
+bytes init-db
+```
+
+Optionally, to delete and re-init:
+
+```bash
+bytes delete-db
+bytes init-db
+```
+
+---
+
+## CLI Tooling
+
+We provide a full CLI via Typer for setup and debugging.
+
+### Example Commands
+
+```bash
+bytes init-db                            # Initialize database tables
+bytes run-parser --load-path ./doc.pdf  # Parse PDF & embed to vector DB
+bytes backend                            # Start FastAPI backend
+bytes create-a-thread --thread-name Q1  # Create a chat thread
+```
+
+All CLI commands are defined in src/bytes/cli.py.
+
+---
 
 ## Using DCO to sign your commits
 

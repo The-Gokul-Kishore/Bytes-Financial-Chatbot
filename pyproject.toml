@@ -1,0 +1,25 @@
+[project]
+name = "bytes"
+version = "0.1.0"
+description = "your friendly helper chatbot"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.12",            
+    "langchain-core>=0.3.63",      
+    "langchain>=0.3.25",           
+    "sqlalchemy>=2.0.41",          
+    "psycopg2-binary>=2.9.10",      
+    "python-dotenv>=1.1.0",       
+    "typer>=0.12.3",                
+    "rich>=13.7.1",               
+    "pydantic[email]>=2.11.4",      
+    "passlib>=1.7.4"                
+]
+
+[project.scripts]
+bytes = "bytes.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
