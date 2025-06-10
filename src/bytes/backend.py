@@ -1,8 +1,7 @@
 import os
 from logging import getLogger
-
+from bytes.agent_services.agent import run_agent
 import uvicorn
-from bytes.agent_services.agent import main
 from bytes.authenticator_service import Authenticator
 from bytes.database import crud
 from bytes.database.db import DBManager
@@ -11,7 +10,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-
+import json
 logger = getLogger("uvicorn.error")
 app = FastAPI()
 origins = [
@@ -137,7 +136,7 @@ async def query(
             raise HTTPException(
                 status_code=400, detail="Thread does not belong to user"
             )
-        response = main(query.query,thread_id=query.thread_id)
+        agent_response = run_agent(query.query,thread_id=query.thread_id)
         chatmanager = crud.ChatManager()
         chatmanager.create_chat_by_username(
             username=userToken.username,
@@ -148,12 +147,14 @@ async def query(
         bot_response = chatmanager.create_chat_by_username(
             username="bot",
             thread_id=query.thread_id,
-            content=response.get("output"),
+            content=json.dumps(agent_response),
             db=session,
         )
         return {
             "query": query.query,
-            "response": response.get("output"),
+            "response": agent_response["text_explanation"],
+            "chart": agent_response["chart_json"],
+            "table": agent_response["table_json"],
             "message_id": bot_response.chat_id,
         }
     except Exception as e:

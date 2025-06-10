@@ -1,40 +1,29 @@
-import os
+# import os
 import argparse
 import traceback
 import json
-import boto3
 
 from langchain.agents import AgentType, Tool, initialize_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.output_parsers import PydanticOutputParser
 from langchain_experimental.tools import PythonREPLTool
-from pydantic import BaseModel, Field
-from typing import Optional, List, Any
-
+# from typing import Optional, List, Any
+import os
 from bytes.database.db import DBManager
-from bytes.database.PostgresChatMemoryStore import PostgresChatMemoryStore
-from bytes.retriver.parser import PDFParser as Retriver
-from bytes.agent_services.bedrock_llm_wrapper import BedrockLLM
-
-
-class Source(BaseModel):
-    type: str = Field(..., description="Whether the source is a 'text' or 'table'")
-    page: int = Field(..., description="Page number of the source")
-    content: str = Field(..., description="The raw text or table used")
-
-
-class ExtractedInsights(BaseModel):
-    explanation: str = Field(..., description="A summary or direct answer")
-    sources: list[Source] = Field(..., description="A list of sources used, each with page number and content")
-
-
+from bytes.retriver.PostgresChatMemoryStore import PostgresChatMemoryStore
+from bytes.retriver.retriver import  Retriver
+#from bytes.agent_services.bedrock_llm_wrapper import BedrockLLM
+from bytes.agent_services.agent_schemas import ExtractedInsights
 parser = PydanticOutputParser(pydantic_object=ExtractedInsights)
 
-llm = BedrockLLM(
-    model_id="arn:aws:bedrock:us-west-2:508202745319:provisioned-model/3smptarxhdnz",
-    profile_name="my-aws-profile",
-    region_name="us-west-2"
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.3,
+    max_output_tokens=4000,
+    google_api_key=os.getenv("GEMINI_API_KEY"),
 )
+
+
 
 retriver = Retriver()
 
@@ -87,7 +76,6 @@ def get_prompt(query: str, context: str) -> str:
     ### Respond ONLY with the JSON object as described.
     """
 
-import json
 
 def explain_with_sources(query: str) -> str:
     context, source_json = get_context(query)
@@ -143,33 +131,45 @@ page_excerpt_tool = Tool(
 
 db_manager = DBManager()
 
-def main(query: str):
+def run_agent(query: str, thread_id: int)->dict:
+    """
+    Run the main agent of the financial insight agent
+    Args:
+        query (str): The query to run the agent on
+        thread_id (int): The thread id of the thread(chat)
+    returns:
+        dict: The response from the agent
+        {
+            "text_explanation": "...",
+            "chart_json": "...",
+            "table_json": "..."
+        }
+    """
     tools_for_main_agent = [extract_pdf_insights, page_excerpt_tool, repl_tool]
     main_agent_prompt = """
-You are a master financial analyst. Your job is to provide a comprehensive answer to the user's query by orchestrating specialized tools.
+        You are a master financial analyst. Your job is to provide a comprehensive answer to the user's query by orchestrating specialized tools.
 
-WORKFLOW:
-1.  First, you MUST use the extract_pdf_insights tool to get the related data from the document.
-2.  Review the explanation from the output of the first tool.
-3.  For charts:
-    i.  Write Python code using plotly to create a chart.
-    ii.  Assign the chart to variable `fig`, convert to JSON using `fig.to_json()` and print it.
-4.  Finally, synthesize the explanation and chart into a full answer.
-pls finish this within 3 calls if more calls are needed return "I cannot answer this question, please try another one"
-Final output format:
-<text_explanation></text_explanation>
-<chart_instruction>...</chart_instruction>
-<chart_json>...</chart_json>
-<table_json>...</table_json>
-Start!
-"""
+        WORKFLOW:
+        1.  First, you MUST use the extract_pdf_insights tool to get the related data from the document.
+        2.  Review the explanation from the output of the first tool.
+        3.  For charts:
+            i.  Write Python code using plotly to create a chart.
+            ii.  Assign the chart to variable `fig`, convert to JSON using `fig.to_json()` and print it.
+        4.  Finally, synthesize the explanation and chart into a full answer.
+        pls finish this within 3 calls if more calls are needed return "I cannot answer this question, please try another one"
+        Final output format:
+        <text_explanation></text_explanation>
+        <chart_json>...</chart_json>
+        <table_json>...</table_json>
+        Start!
+        """
     with db_manager.session() as db_session:
         main_agent = initialize_agent(
             tools=tools_for_main_agent,
             llm=llm,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
-            memory=PostgresChatMemoryStore(db_manager=db_session, thread_id=1),
+            memory=PostgresChatMemoryStore(db_manager=db_session, thread_id=thread_id),
             agent_kwargs={"prefix": main_agent_prompt}
         )
 
@@ -179,7 +179,15 @@ Start!
             print("✅ FINAL AGENT RESPONSE:")
             print("="*50)
             print(response.get('output'))
-
+            output = (response.get('output'))
+            text_explanation = output.split("<text_explanation>")[1].split("</text_explanation>")[0]
+            chart_json = output.split("<chart_json>")[1].split("</chart_json>")[0]
+            table_json = output.split("<table_json>")[1].split("</table_json>")[0]
+            return {
+                "text_explanation": text_explanation,
+                "chart_json": chart_json if len(chart_json) > 0 else None,
+                "table_json": table_json if len(table_json) > 0 else None
+            }
         except Exception as e:
             print("error:", e)
             print(f"\nAn error occurred in the main agent execution: {traceback.format_exc()}")
@@ -189,4 +197,4 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", type=str, required=True, help="User query to run the agent on")
     args = parser.parse_args()
 
-    main(args.prompt)
+    run_agent(args.prompt)

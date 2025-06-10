@@ -1,5 +1,5 @@
 from langchain_core.language_models.llms import LLM
-from langchain_core.outputs import LLMResult
+# from langchain_core.outputs import LLMResult
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
 
 import boto3
