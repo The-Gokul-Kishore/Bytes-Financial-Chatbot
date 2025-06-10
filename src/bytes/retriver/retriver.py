@@ -17,7 +17,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 print("Loading Parser...")
 
 
-class PDFParser:
+class Retriver:
     _instance = None
     _lock = threading.Lock()
 
@@ -25,7 +25,7 @@ class PDFParser:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(PDFParser, cls).__new__(cls)
+                    cls._instance = super(Retriver, cls).__new__(cls)
                     cls._instance.__init__()
         return cls._instance
 
@@ -129,7 +129,7 @@ class PDFParser:
 
 
 if __name__ == "__main__":
-    parser = PDFParser()
+    parser = Retriver()
     parser.parse(
         load_path=Path("C://Users//GOKUL//Downloads//annual-report-2023-2024.pdf"),
         output_dir=Path("data"),
