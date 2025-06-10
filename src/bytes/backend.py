@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from bytes.agent_services.agent import run_agent
+from bytes.agent_services.agent import Agent_Service
 import uvicorn
 from bytes.authenticator_service import Authenticator
 from bytes.database import crud
@@ -136,7 +136,8 @@ async def query(
             raise HTTPException(
                 status_code=400, detail="Thread does not belong to user"
             )
-        agent_response = run_agent(query.query,thread_id=query.thread_id)
+        agent= Agent_Service(model="gemini-1.5-flash",db_manager=session)
+        agent_response = agent.run_agent(query.query,thread_id=query.thread_id,db=session)
         chatmanager = crud.ChatManager()
         chatmanager.create_chat_by_username(
             username=userToken.username,

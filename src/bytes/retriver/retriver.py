@@ -87,7 +87,7 @@ class Retriver:
         return image_b64_by_page
 
     def build_combined_pagewise_docs(
-        self, doc, doc_name: str, table_map: dict, image_map: dict
+        self, doc, doc_name: str, table_map: dict, image_map: dict,thread_id:int=0,
     ):
         documents = []
         for i, page in enumerate(doc):
@@ -103,19 +103,20 @@ class Retriver:
                 "page_number": page_num,
                 "doc_name": doc_name,
                 "image_b64": image_b64,
+                "thread_id":thread_id
             }
 
             documents.append(Document(page_content=content, metadata=metadata))
         return documents
 
-    def parse(self, load_path: Path, output_dir: Path):
+    def parse(self, load_path: Path, output_dir: Path, thread_id:int=0):
         doc = fitz.open(str(load_path))
         doc_name = load_path.stem
 
         table_map = self.extract_tables_by_page(load_path, doc_name)
         image_map = self.extract_images_by_page(doc, doc_name)
         combined_docs = self.build_combined_pagewise_docs(
-            doc, doc_name, table_map, image_map
+            doc, doc_name, table_map, image_map,thread_id=thread_id
         )
 
         self.vectorstore.add_documents(combined_docs)
@@ -123,11 +124,12 @@ class Retriver:
             [(doc.metadata["doc_id"], doc.page_content) for doc in combined_docs]
         )
 
-        print("\n✅ All pages processed and indexed as unified per-page chunks.")
-        docs = self.retriever.invoke("What is the revenue of the company in FY23?")
-        print("📄 Retrieved documents:", docs)
+        # print("\n✅ All pages processed and indexed as unified per-page chunks.")
+        # docs = self.retriever.invoke("What is the revenue of the company in FY23?")
+        # print("📄 Retrieved documents:", docs)
 
-
+    def retrive(self,query:str,thread_id:int=0):
+        return self.retriever.vectorstore.similarity_search(query, k=10)
 if __name__ == "__main__":
     parser = Retriver()
     parser.parse(
