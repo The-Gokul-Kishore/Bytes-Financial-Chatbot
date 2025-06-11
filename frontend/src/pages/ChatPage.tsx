@@ -44,26 +44,25 @@ const ChatPage: React.FC = () => {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
+useEffect(() => {
+  if (token) fetchThreads();
+}, [token]);
 
-  useEffect(() => {
-    fetchThreads();
-  }, []);
-
-  useEffect(() => {
-    if (activeChat) {
-      fetchChats(parseInt(activeChat));
-    }
-  }, [activeChat]);
-
+useEffect(() => {
+  if (token && activeChat) {
+    fetchChats(parseInt(activeChat));
+  }
+}, [token, activeChat]);
   useEffect(() => {
     scrollToBottom();
   }, [chats]);
 
-  const fetchThreads = async () => {
-    try {
-      const response = await axios.get('http://localhost:8000/threads', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+const fetchThreads = async () => {
+  if (!token) return; // 👈 important
+  try {
+    const response = await axios.get('http://localhost:8021/threads', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
       const threads = response.data;
       setChats(threads.map((thread: any) => ({
         id: thread.thread_id.toString(),
@@ -78,94 +77,108 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const fetchChats = async (threadId: number) => {
-    try {
-      const response = await axios.get(`http://localhost:8000/chats?thread_id=${threadId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const chatData = response.data;
-      setChats(prevChats => 
-        prevChats.map(chat => 
-          chat.id === threadId.toString()
-            ? {
-                ...chat,
-                messages: chatData.map((msg: any) => ({
-                  id: msg.chat_id.toString(),
-                  content: msg.content,
-                  isUser: msg.username !== 'bot',
-                  timestamp: new Date(msg.created_at)
-                }))
-              }
-            : chat
-        )
+const fetchChats = async (threadId: number) => {
+  try {
+    const response = await axios.get(`http://localhost:8021/chats?thread_id=${threadId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const chatData = Array.isArray(response.data) ? response.data : [];
+
+    setChats(prevChats =>
+      prevChats.map(chat =>
+        chat.id === threadId.toString()
+          ? {
+              ...chat,
+              messages: chatData.map((msg: any) => ({
+                id: msg.chat_id.toString(),
+                content: msg.content,
+                isUser: msg.username !== 'bot',
+                timestamp: new Date(msg.created_at)
+              }))
+            }
+          : chat
+      )
+    );
+  } catch (error) {
+    console.error('Error fetching chats:', error);
+  }
+};
+
+const handleSendMessage = async () => {
+  if (!message.trim() && !selectedFile) return;
+
+  try {
+    // If file is selected, upload first
+    if (selectedFile) {
+      const fileData = new FormData();
+      fileData.append('file', selectedFile);
+
+      await axios.post(
+        `http://localhost:8021/upload-pdf?thread_id=${activeChat}`,
+        fileData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'multipart/form-data',
+          },
+        }
       );
-    } catch (error) {
-      console.error('Error fetching chats:', error);
     }
-  };
 
-  const handleSendMessage = async () => {
-    if (!message.trim() && !selectedFile) return;
-
-    try {
-      const formData = new FormData();
-      if (selectedFile) {
-        formData.append('file', selectedFile);
-      }
-      formData.append('query', message);
-      formData.append('thread_id', activeChat);
-
-      const response = await axios.post('http://localhost:8000/query', formData, {
+    // Now send the query message
+    const response = await axios.post(
+      'http://localhost:8021/query',
+      {
+        query: message,
+        thread_id: parseInt(activeChat),
+        thread_specific_call: true,
+      },
+      {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-
-      const { response: botResponse, chart, table } = response.data;
-
-      // Add user message
-      const userMessage: Message = {
-        id: Date.now().toString(),
-        content: message,
-        isUser: true,
-        timestamp: new Date(),
-      };
-
-      // Add bot response
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: botResponse,
-        isUser: false,
-        timestamp: new Date(),
-      };
-
-      setChats(prevChats =>
-        prevChats.map(chat =>
-          chat.id === activeChat
-            ? {
-                ...chat,
-                messages: [...chat.messages, userMessage, botMessage],
-              }
-            : chat
-        )
-      );
-
-      setMessage('');
-      setSelectedFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        },
       }
+    );
 
-      // Handle chart and table data if present
-      if (chart || table) {
-        setShowAnalysis(true);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
+    const { response: botResponse, chart, table } = response.data;
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: message,
+      isUser: true,
+      timestamp: new Date(),
+    };
+
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      content: botResponse,
+      isUser: false,
+      timestamp: new Date(),
+    };
+
+    setChats(prevChats =>
+      prevChats.map(chat =>
+        chat.id === activeChat
+          ? {
+              ...chat,
+              messages: [...chat.messages, userMessage, botMessage],
+            }
+          : chat
+      )
+    );
+
+    setMessage('');
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+    if (chart || table) {
+      setShowAnalysis(true);
     }
-  };
-
+  } catch (error) {
+    console.error('Error sending message:', error);
+  }
+};
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -181,10 +194,13 @@ const ChatPage: React.FC = () => {
 
   const createNewChat = async () => {
     try {
-      const response = await axios.post('http://localhost:8000/create-thread', 
-        { thread_type: 'New Chat' },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+const response = await axios.post(
+  'http://localhost:8021/create-thread',
+  {}, // empty body
+  {
+    headers: { Authorization: `Bearer ${token}` }
+  }
+);
       const newThread = response.data;
       const newChat: Chat = {
         id: newThread.thread_id.toString(),

@@ -11,7 +11,7 @@ from langchain_experimental.tools import PythonREPLTool
 import os
 from langchain_core.runnables import RunnableWithMessageHistory
 from bytes.database.db import DBManager
-from bytes.retriver.PostgresChatMemoryStore import PostgresChatMemoryStore
+from bytes.retriver.PostgresMessageHistory import PostgresMessageHistory
 from bytes.retriver.retriver import  Retriver
 #from bytes.agent_services.bedrock_llm_wrapper import BedrockLLM
 from bytes.agent_services.agent_schemas import ExtractedInsights
@@ -192,13 +192,13 @@ class Agent_Service:
             )
         # runnable = RunnableWithMessageHistory(
         #      main_agent,
-        #      lambda session_id: PostgresChatMemoryStore(db_manager=db, thread_id=session_id),
+        #      lambda session_id: PostgresMessageHistory(db_manager=db, thread_id=session_id),
         #      input_messages_key="input",
         #      history_messages_key="chat_history",
         # )
         try:
                 response = main_agent.invoke({"input": query},
-                                           config={"configurable":{"session_id":str(thread_id)}}
+                                           config={"configurable":{"session_id":str(passing_id)}}
                                            )
                 print("\n" + "="*50)
                 print("✅ FINAL AGENT RESPONSE:")

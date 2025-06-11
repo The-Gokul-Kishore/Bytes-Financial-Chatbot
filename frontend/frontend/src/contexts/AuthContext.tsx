@@ -121,11 +121,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signup = async (username: string, email: string, password: string) => {
     try {
       console.log('Attempting signup for username:', username);
-      const response = await api.post('/create-user', {
-          "email":email,
-        "username":username,
-        "password":password
-      });
+const response = await axios.post(
+  'http://localhost:8021/create-user',
+  {
+    email: email,
+    username: username,
+    password: password
+  },
+  {
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  }
+);console.log("Signup request body:", {
+  email,
+  username,
+  password
+});
+
+
       console.log('Signup response:', response.data);
 
       // After successful signup, log the user in

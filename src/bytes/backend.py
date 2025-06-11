@@ -18,7 +18,7 @@ import json
 logger = getLogger("uvicorn.error")
 app = FastAPI()
 origins = [
-    "http://localhost:3000",
+    "http://localhost:5173",
 ]
 
 app.add_middleware(
@@ -155,12 +155,12 @@ async def query(
             content=json.dumps(agent_response),
             db=session,
         )
+   
         return {
-            "query": query.query,
             "response": agent_response["text_explanation"],
             "chart": agent_response["chart_json"],
             "table": agent_response["table_json"],
-            "message_id": bot_response.chat_id,
+            # "message_id": bot_response.chat_id,
         }
     except Exception as e:
         session.rollback()
@@ -172,7 +172,7 @@ def save_file(file, thread_id):
             shutil.copyfileobj(file.file,temp_file)
             temp_file_path = Path(temp_file.name)
             print(f"File saved to {temp_file_path} temporary file path")
-            parser.parse(load_path=temp_file_path,thread_id=thread_id)
+            # parser.parse(load_path=temp_file_path,thread_id=thread_id)
     except Exception as e:
         print("Exception:", e)
         raise e
@@ -240,10 +240,29 @@ async def get_chats(
             raise HTTPException(
                 status_code=400, detail="Thread does not belong to user"
             )
+        
+        print("Authenticated user:", usertoken.username)
+
         chat_manager = crud.ChatManager()
 
         chats = chat_manager.get_chats_by_thread(thread_id=thread_id, db=db_session)
-        return chats
+        formatted_answer = []
+        thread = crud.ThreadManager().get_thread_by_id(thread_id=thread_id, db=db_session)
+        if not thread:
+            raise HTTPException(status_code=404, detail="Thread not found")
+
+        owner = crud.ClientManager().get_client_by_username(username=usertoken.username, db=db_session)
+        print("Thread client ID:", thread.client_id, "User client ID:", owner.client_id)
+
+        for chat in chats:
+            formatted_answer.append(
+                {
+                    "chat_id": chat.chat_id,
+                    "username": crud.ClientManager().get_client_by_id(client_id=chat.sender_id, db=db_session).username,
+                    "content": chat.content,
+                    "created_at": chat.sent_at,
+                }
+            )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -263,15 +282,17 @@ async def delete_thread(
 
 @router.post("/create-thread")
 async def create_thread(
-    thread_type: str,
     db_session: Session = Depends(get_db_session),
     usertoken: TokenData = Depends(auth_service.verify_token),
 ):
     thread_manager = crud.ThreadManager()
     thread = thread_manager.create_thread_by_username(
-        username=usertoken.username, thread_type=thread_type, db=db_session
+        username=usertoken.username, thread_type="thread_type", db=db_session
     )
-    return thread
+    return {
+        "thread_id": thread.thread_id,
+        "thread_name": thread.thread_name,
+    }
 
 
 app.include_router(router=router)
