@@ -30,3 +30,4 @@ class TokenData(BaseModel):
 class Query(BaseModel):
     query: str
     thread_id: int
+    thread_specific_call: Optional[bool] = False

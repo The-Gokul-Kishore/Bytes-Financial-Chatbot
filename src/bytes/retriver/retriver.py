@@ -109,7 +109,7 @@ class Retriver:
             documents.append(Document(page_content=content, metadata=metadata))
         return documents
 
-    def parse(self, load_path: Path, output_dir: Path, thread_id:int=0):
+    def parse(self, load_path: Path,  thread_id:int=0):
         doc = fitz.open(str(load_path))
         doc_name = load_path.stem
 
@@ -127,12 +127,16 @@ class Retriver:
         # print("\n✅ All pages processed and indexed as unified per-page chunks.")
         # docs = self.retriever.invoke("What is the revenue of the company in FY23?")
         # print("📄 Retrieved documents:", docs)
+    def delete_vectorstore(self):
+        print("Deleting all data from vectorsotre database...")
+        if_delete:bool =  bool(input("Are you sure? (1/0)"))
+        if(if_delete):
+            self.vectorstore.delete(delete_all=True)
 
     def retrive(self,query:str,thread_id:int=0):
-        return self.retriever.vectorstore.similarity_search(query, k=10)
+        return self.retriever.vectorstore.similarity_search(query, k=10,filter={"thread_id":thread_id})
 if __name__ == "__main__":
     parser = Retriver()
     parser.parse(
         load_path=Path("C://Users//GOKUL//Downloads//annual-report-2023-2024.pdf"),
-        output_dir=Path("data"),
     )

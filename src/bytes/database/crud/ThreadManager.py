@@ -44,6 +44,9 @@ class ThreadManager:
             Thread.thread_id == thread_id, Thread.client_id == client.client_id
         ).delete()
         db.flush()
-
+    def delete_thread_by_id(self, thread_id: int, db: Session) -> None:
+        db.query(Thread).filter(Thread.thread_id == thread_id).delete()
+        db.flush()
+        
     def get_thread_by_id(self, thread_id: int, db: Session) -> Thread:
         return db.query(Thread).filter(Thread.thread_id == thread_id).first()

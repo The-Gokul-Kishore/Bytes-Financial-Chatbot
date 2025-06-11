@@ -4,12 +4,16 @@ from bytes.agent_services.agent import Agent_Service
 import uvicorn
 from bytes.authenticator_service import Authenticator
 from bytes.database import crud
+from bytes.retriver.retriver import Retriver
 from bytes.database.db import DBManager
 from bytes.schemas import Query, Token, TokenData, UserCreate
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import File,UploadFile, APIRouter, Depends, FastAPI, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
+import tempfile
+from  pathlib import Path
+import shutil
 import json
 logger = getLogger("uvicorn.error")
 app = FastAPI()
@@ -31,7 +35,7 @@ auth_service = Authenticator(
 )
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 router = APIRouter(dependencies=[Depends(auth_service.verify_token)])
-
+parser = Retriver()
 
 def get_db_manager():
     """
@@ -115,7 +119,7 @@ async def create_user(
         }
     except Exception as e:
         logger.error(f"Exception: {e}")
-        raise HTTPException(status_code=400, detail=e)
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/query")
@@ -137,7 +141,7 @@ async def query(
                 status_code=400, detail="Thread does not belong to user"
             )
         agent= Agent_Service(model="gemini-1.5-flash",db_manager=session)
-        agent_response = agent.run_agent(query.query,thread_id=query.thread_id,db=session)
+        agent_response = agent.run_agent(query.query,thread_id=query.thread_id,db=session,thread_specific_call=query.thread_specific_call)
         chatmanager = crud.ChatManager()
         chatmanager.create_chat_by_username(
             username=userToken.username,
@@ -162,6 +166,46 @@ async def query(
         session.rollback()
         print("Exception:", e)
 
+def save_file(file, thread_id):
+    try: 
+        with tempfile.NamedTemporaryFile(delete=False,suffix=".pdf") as temp_file:
+            shutil.copyfileobj(file.file,temp_file)
+            temp_file_path = Path(temp_file.name)
+            print(f"File saved to {temp_file_path} temporary file path")
+            parser.parse(load_path=temp_file_path,thread_id=thread_id)
+    except Exception as e:
+        print("Exception:", e)
+        raise e
+   
+    finally:
+        file.file.close()
+@router.post("/upload-pdf")
+async def upload_pdf(
+    thread_id: int,
+    file: UploadFile = File(...),
+    db_session: Session = Depends(get_db_session),
+    usertoken=Depends(auth_service.verify_token),
+    ):
+    if(crud.ThreadManager().get_thread_by_id(thread_id=thread_id,db=db_session).client_id!=crud.ClientManager().get_client_by_username(username=usertoken.username,db=db_session).client_id):
+            raise HTTPException(status_code=400,detail="Thread does not belong to user")
+
+    try:
+        save_file(file=file,thread_id=thread_id)
+        return {"message":"File uploaded successfully"}
+    except Exception as e:
+        print("Exception:", e)
+        raise HTTPException(status_code=400,detail=str(e))
+@router.post("/upload-to-main")
+async def upload_to_main(
+    file: UploadFile = File(...),
+    db_session: Session = Depends(get_db_session),
+):
+    try:
+        save_file(file=file,thread_id=0)
+        return {"message":"File uploaded successfully"}
+    except Exception as e:
+        print("Exception:", e)
+        raise HTTPException(status_code=400,detail=str(e))
 
 @router.get("/threads")
 async def get_threads(
@@ -175,7 +219,7 @@ async def get_threads(
         )
         return threads
     except Exception as e:
-        raise HTTPException(status_code=400, detail=e)
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/chats")
@@ -201,8 +245,21 @@ async def get_chats(
         chats = chat_manager.get_chats_by_thread(thread_id=thread_id, db=db_session)
         return chats
     except Exception as e:
-        raise HTTPException(status_code=400, detail=e)
+        raise HTTPException(status_code=400, detail=str(e))
 
+@router.delete("/delete-thread")
+async def delete_thread(
+    thread_id:int,
+    db_session: Session = Depends(get_db_session),
+    usertoken: TokenData = Depends(auth_service.verify_token),
+):
+    if(crud.ThreadManager().get_thread_by_id(thread_id=thread_id,db=db_session).client_id!=crud.ClientManager().get_client_by_username(username=usertoken.username,db=db_session).client_id):
+            raise HTTPException(status_code=400,detail="Thread does not belong to user")
+    try:
+        crud.ThreadManager().delete_thread_by_id(thread_id=thread_id,db=db_session)
+        return {"message":"Thread deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=400,detail=str(e))
 
 @router.post("/create-thread")
 async def create_thread(

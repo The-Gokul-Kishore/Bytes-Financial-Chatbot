@@ -3,12 +3,12 @@ from pathlib import Path
 import typer
 from dotenv import load_dotenv
 from rich.console import Console
-
+from bytes.database.db import DBManager
 console = Console()
 app = typer.Typer(name="bytes", help="bytes cli")
 
 
-
+db_manager = DBManager()
 @app.callback()
 def load_env(
     env: Path = typer.Option(
@@ -87,4 +87,22 @@ def create_a_thread(
             username="user", thread_type=thread_type, db=db
         )
         console.print(f"[green]Thread {thread_name} created[/green]")
+@app.command()
+def run_agent(
+    query: str = typer.Option(..., "--query", "-q", help="Query"),
+    thread_id: int = typer.Option(1, "--thread-id", "-t", help="Thread id"),
+):
+    try:
+        from bytes.agent_services.agent import Agent_Service
+        with db_manager.session() as session:
+            agent = Agent_Service(model="gemini-1.5-flash",db_manager=session)
+            agent.run_agent(query=query, thread_id=thread_id,db=session,thread_specific_call=False)
+    except Exception as e:
+        console.print("[red]Agent stopped with error:[/red]", e)
+@app.command()
+def delete_vecst():
+    from bytes.retriver.retriver import Retriver
 
+    parser = Retriver()
+    parser.delete_vectorstore()
+    console.print("[green]vectore Stores deleted[/green]")
