@@ -14,7 +14,7 @@ More Info - https://communications.dtcc.com/dtcc-ai-hackathon-registration-17810
 
 Commit Early & Commit Often!!!
 
-Absolutely — here’s a clean, well-structured, hackathon-ready comprehensive README for your project Bytes, incorporating everything you’ve shared so far.
+Absolutely — here's a clean, well-structured, hackathon-ready comprehensive README for your project Bytes, incorporating everything you've shared so far.
 
 You can paste this into your README.md file directly:
 
@@ -28,7 +28,7 @@ Built using LangChain, PGVector, FastAPI, and Python agents, Bytes extracts tabl
 ---
 
 ## Problem Statement
-Self-Service Investigation (Chat NLP): Enable users to interact with data and perform investigations or analyses through conversational interfaces. Illustrative examples include ingesting corporate action data from multiple sources to extract key details, chatbot to provide market intelligence using capital markets data, and generate risk assessment reports from financial statements and regulatory filings.
+Self-Service Investigation (Chat NLP): Enable users to interact with data and perform investigations or analyses through conversational interfaces. Illustrative examples include ingesting corporate action data from multiple sources to extract key details, chatbot to provide market intelligence using capital markets data, and generate risk assessment reports from financial statements and regulatory filings.
 
 ---
 
@@ -54,7 +54,7 @@ Self-Service Investigation (Chat NLP): Enable users to interact with data and pe
 | Ashika K     | Team Lead, AWS Integration & Risk Analysis | Chennai Institute of Technology (AI & DS) |
 | Deepak J     | LLM Fine-Tuning & Agent Support            | Chennai Institute of Technology (AI & DS) |
 | Gokul K      | AI Agent & Backend Development             | Chennai Institute of Technology (AI & DS) |
-| Priya Reka S | Frontend Development                       | Chennai Institute of Technology (ECE)     |
+| Priya Reka S | Frontend Development                       | Chennai Institute of Technology (EC-ACT)  |
 | Srisun S     | QA Engineering & Development Support       | Zoho Corporation                          |
 | Darshini PG  | QA Engineering & Development Support       | Zoho Corporation                          |
 
@@ -73,9 +73,17 @@ uv venv  # or python -m venv .venv
 uv sync  # or pip install -e .
 ```
 
----
+### 2. Frontend Setup
 
-### 2. Setup .env
+```bash
+cd frontend
+npm install  # Install frontend dependencies
+npm run dev  # Start the frontend development server
+```
+
+The frontend will be available at `http://localhost:5173`
+
+### 3. Setup .env
 
 Create a `.env` file at the project root:
 
@@ -89,9 +97,7 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
----
-
-### 3. Start PostgreSQL with pgvector via Docker
+### 4. Start PostgreSQL with pgvector via Docker
 
 ```bash
 docker run -d \
@@ -103,9 +109,7 @@ docker run -d \
   ankane/pgvector
 ```
 
----
-
-### 4. Initialize the Database
+### 5. Initialize the Database
 
 ```bash
 bytes init-db
@@ -117,6 +121,20 @@ Optionally, to delete and re-init:
 bytes delete-db
 bytes init-db
 ```
+
+### 6. Start the Backend Server
+
+```bash
+bytes backend
+```
+
+The backend API will be available at `http://localhost:8000`
+
+### 7. Access the Application
+
+1. Open your browser and navigate to `http://localhost:5173`
+2. Log in with your credentials
+3. Start using the application!
 
 ---
 
