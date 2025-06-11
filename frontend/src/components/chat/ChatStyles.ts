@@ -114,4 +114,26 @@ export const GraphContainer = styled.div`
   border-radius: 1rem;
   padding: 1rem;
   margin-bottom: 1rem;
+`;
+
+export const FileUploadButton = styled(motion.button)`
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+`;
+
+export const FileInput = styled.input`
+  display: none;
 `; 
