@@ -1,5 +1,4 @@
 # import os
-import argparse
 import traceback
 import json
 from sqlalchemy.orm import Session
@@ -9,9 +8,9 @@ from langchain.output_parsers import PydanticOutputParser
 from langchain_experimental.tools import PythonREPLTool
 # from typing import Optional, List, Any
 import os
-from langchain_core.runnables import RunnableWithMessageHistory
+# from langchain_core.runnables import RunnableWithMessageHistory
 from bytes.database.db import DBManager
-from bytes.retriver.PostgresMessageHistory import PostgresMessageHistory
+# from bytes.retriver.PostgresMessageHistory import PostgresMessageHistory
 from bytes.retriver.retriver import  Retriver
 #from bytes.agent_services.bedrock_llm_wrapper import BedrockLLM
 from bytes.agent_services.agent_schemas import ExtractedInsights
@@ -170,7 +169,7 @@ class Agent_Service:
             You are a master financial analyst. Your job is to provide a comprehensive answer to the user's query by orchestrating specialized tools.
 
             WORKFLOW:
-            1.  First, you MUST use the extract_pdf_insights tool to get the related data from the document.
+            1.  First, you MUST use the extract_pdf_insights tool to get the related data from the documents(this has all the documents).
             2.  Review the explanation from the output of the first tool.
             3.  For charts:
                 i.  Write Python code using plotly to create a chart.
@@ -188,6 +187,7 @@ class Agent_Service:
                 llm=llm,
                 agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
                 verbose=True,
+                handle_parsing_errors=True,
                 agent_kwargs={"prefix": main_agent_prompt}
             )
         # runnable = RunnableWithMessageHistory(
@@ -203,16 +203,27 @@ class Agent_Service:
                 print("\n" + "="*50)
                 print("✅ FINAL AGENT RESPONSE:")
                 print("="*50)
+                if(response.get("output") is None):
+                    return {"text_explanation": "I cannot answer this question, please try another one", "chart_json": None, "table_json": None}
                 print(response.get('output'))
                 output = str(response.get('output'))
-                text_explanation = output.split("<text_explanation>")[1].split("</text_explanation>")[0]
-                chart_json = output.split("<chart_json>")[1].split("</chart_json>")[0]
-                table_json = output.split("<table_json>")[1].split("</table_json>")[0]
+                if(output.split("<text_explanation>")== ""):
+                    text_explanation = output
+                else:    
+                    text_explanation = output.split("<text_explanation>")[1].split("</text_explanation>")[0]
+                if(output.split("<chart_json>")== ""):
+                    chart_json = ""
+                else:
+                    chart_json = output.split("<chart_json>")[1].split("</chart_json>")[0]
+                if(output.split("<table_json>")== ""):
+                    table_json = ""
+                else:
+                    table_json = output.split("<table_json>")[1].split("</table_json>")[0]
                 return {
                     "text_explanation": text_explanation,
                     "chart_json": chart_json if len(chart_json) > 0 else None,
                     "table_json": table_json if len(table_json) > 0 else None
-                }
+                }     
         except Exception as e:
                 print("error:", e)
                 print(f"\nAn error occurred in the main agent execution: {traceback.format_exc()}")

@@ -106,3 +106,40 @@ def delete_vecst():
     parser = Retriver()
     parser.delete_vectorstore()
     console.print("[green]vectore Stores deleted[/green]")
+
+@app.command()
+def frontend(path:Path = typer.Option(Path(".\\frontend"), "--path", "-p", help="path to frontend")):
+    
+
+    try:
+        import subprocess
+        console.print("[bold green]Starting frontend[/]")
+        command = ["npm","run","dev"]
+        subprocess.run(command,cwd=path,check=True,shell=True)
+        console.print("[bold green]Frontend stopped[/]")
+    except Exception as e:
+        console.print("[red]Frontend stopped with error:[/red]", e)
+
+@app.command()
+def run_risk():
+    from bytes.risk_analyser.backend.app import run_backend
+
+    try:
+        console.print("[bold green]Starting backend[/]")
+        run_backend()
+        console.print("[bold green]Backend stopped[/]")
+    except Exception as e:
+        console.print("[red]Backend stopped with error:[/red]", e)
+
+@app.command()
+def run_risk_frontend():
+    import subprocess 
+
+    try:
+        path = Path("./bytes/risk_analyser/frontend")
+        console.print("[bold green]Starting frontend[/]")
+        command = ["npm","run","dev"]
+        subprocess.run(command,cwd=path,check=True,shell=True)
+        console.print("[bold green]Frontend stopped[/]")
+    except Exception as e:
+        console.print("[red]Frontend stopped with error:[/red]", e)

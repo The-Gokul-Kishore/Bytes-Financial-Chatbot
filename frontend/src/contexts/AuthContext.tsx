@@ -147,6 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: error.response?.data,
           headers: error.response?.headers
         });
+        console.error("Full Axios error:", error.response?.data);
+
       }
       throw new Error('Failed to create account');
     }

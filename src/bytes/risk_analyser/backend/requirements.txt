@@ -1,0 +1,6 @@
+Flask
+flask-cors
+pdfplumber
+boto3
+jinja2
+weasyprint

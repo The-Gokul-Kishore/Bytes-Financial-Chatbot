@@ -149,19 +149,20 @@ async def query(
             content=query.query,
             db=session,
         )
-        bot_response = chatmanager.create_chat_by_username(
-            username="bot",
-            thread_id=query.thread_id,
-            content=json.dumps(agent_response),
-            db=session,
-        )
-   
-        return {
+        response_json = {
             "response": agent_response["text_explanation"],
             "chart": agent_response["chart_json"],
             "table": agent_response["table_json"],
             # "message_id": bot_response.chat_id,
         }
+        bot_response = chatmanager.create_chat_by_username(
+            username="bot",
+            thread_id=query.thread_id,
+            content=json.dumps(response_json),
+            db=session,
+        )
+        print(f"Bot response: {bot_response}")
+        return response_json
     except Exception as e:
         session.rollback()
         print("Exception:", e)
@@ -263,6 +264,8 @@ async def get_chats(
                     "created_at": chat.sent_at,
                 }
             )
+        
+        return formatted_answer
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

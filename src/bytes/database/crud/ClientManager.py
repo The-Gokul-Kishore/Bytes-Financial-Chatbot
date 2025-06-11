@@ -4,10 +4,10 @@ from sqlalchemy.orm import Session
 
 class ClientManager:
     def create_client(
-        self, email: str, password: str, username: str, db: Session
+        self, email: str, password: str, username: str, db: Session,auth_service
     ) -> Clients:
         #will has in future
-        hashed_pw = password
+        hashed_pw =auth_service.hash_password(password)
         new_client = Clients(email=email, username=username, hashed_password=hashed_pw)
         db.add(new_client)
         db.flush()

@@ -66,7 +66,7 @@ const fetchThreads = async () => {
       const threads = response.data;
       setChats(threads.map((thread: any) => ({
         id: thread.thread_id.toString(),
-        title: thread.thread_type,
+        title: thread.thread_name,
         messages: []
       })));
       if (threads.length > 0) {
@@ -132,7 +132,7 @@ const handleSendMessage = async () => {
       {
         query: message,
         thread_id: parseInt(activeChat),
-        thread_specific_call: true,
+        thread_specific_call: false,
       },
       {
         headers: {
@@ -194,17 +194,17 @@ const handleSendMessage = async () => {
 
   const createNewChat = async () => {
     try {
-const response = await axios.post(
-  'http://localhost:8021/create-thread',
-  {}, // empty body
-  {
+  const response = await axios.post(
+    'http://localhost:8021/create-thread',
+    {}, // empty body
+    {
     headers: { Authorization: `Bearer ${token}` }
   }
 );
       const newThread = response.data;
       const newChat: Chat = {
         id: newThread.thread_id.toString(),
-        title: newThread.thread_type,
+        title: newThread.thread_name,
         messages: [],
       };
       setChats(prevChats => [...prevChats, newChat]);
@@ -215,6 +215,7 @@ const response = await axios.post(
   };
 
   return (
+    
     <ChatContainer>
       <Sidebar>
         <button
@@ -249,19 +250,20 @@ const response = await axios.post(
       <ChatMain>
         <ChatHeader>
           <h2>{chats.find(chat => chat.id === activeChat)?.title}</h2>
-          <button
-            onClick={() => setShowAnalysis(!showAnalysis)}
-            style={{
-              padding: '0.5rem 1rem',
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: 'none',
-              borderRadius: '0.5rem',
-              color: 'white',
-              cursor: 'pointer',
-            }}
-          >
-            {showAnalysis ? 'Hide Analysis' : 'Show Analysis'}
-          </button>
+  <button
+  onClick={() => window.location.href = 'http://localhost:5100/'}
+  style={{
+    padding: '0.5rem 1rem',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: 'none',
+    borderRadius: '0.5rem',
+    color: 'white',
+    cursor: 'pointer',
+  }}
+>
+  Risk Report
+</button>
+
         </ChatHeader>
 
         <ChatMessages>
