@@ -12,7 +12,11 @@ import {
   ChatItem,
   AnalysisPanel,
   GraphContainer,
+  FileUploadButton,
+  FileInput,
 } from '../components/chat/ChatStyles';
+import { useAuth } from '../contexts/AuthContext';
+import axios from 'axios';
 
 interface Message {
   id: string;
@@ -28,12 +32,13 @@ interface Chat {
 }
 
 const ChatPage: React.FC = () => {
-  const [chats, setChats] = useState<Chat[]>([
-    { id: '1', title: 'New Chat', messages: [] },
-  ]);
-  const [activeChat, setActiveChat] = useState<string>('1');
+  const { token } = useAuth();
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [activeChat, setActiveChat] = useState<string>('');
   const [message, setMessage] = useState('');
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -41,38 +46,96 @@ const ChatPage: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchThreads();
+  }, []);
+
+  useEffect(() => {
+    if (activeChat) {
+      fetchChats(parseInt(activeChat));
+    }
+  }, [activeChat]);
+
+  useEffect(() => {
     scrollToBottom();
   }, [chats]);
 
+  const fetchThreads = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/threads', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const threads = response.data;
+      setChats(threads.map((thread: any) => ({
+        id: thread.thread_id.toString(),
+        title: thread.thread_type,
+        messages: []
+      })));
+      if (threads.length > 0) {
+        setActiveChat(threads[0].thread_id.toString());
+      }
+    } catch (error) {
+      console.error('Error fetching threads:', error);
+    }
+  };
+
+  const fetchChats = async (threadId: number) => {
+    try {
+      const response = await axios.get(`http://localhost:8000/chats?thread_id=${threadId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const chatData = response.data;
+      setChats(prevChats => 
+        prevChats.map(chat => 
+          chat.id === threadId.toString()
+            ? {
+                ...chat,
+                messages: chatData.map((msg: any) => ({
+                  id: msg.chat_id.toString(),
+                  content: msg.content,
+                  isUser: msg.username !== 'bot',
+                  timestamp: new Date(msg.created_at)
+                }))
+              }
+            : chat
+        )
+      );
+    } catch (error) {
+      console.error('Error fetching chats:', error);
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() && !selectedFile) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      content: message,
-      isUser: true,
-      timestamp: new Date(),
-    };
+    try {
+      const formData = new FormData();
+      if (selectedFile) {
+        formData.append('file', selectedFile);
+      }
+      formData.append('query', message);
+      formData.append('thread_id', activeChat);
 
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.id === activeChat
-          ? {
-              ...chat,
-              messages: [...chat.messages, newMessage],
-            }
-          : chat
-      )
-    );
+      const response = await axios.post('http://localhost:8000/query', formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
 
-    setMessage('');
+      const { response: botResponse, chart, table } = response.data;
 
-    // TODO: Implement API call to get AI response
-    // Simulating AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
+      // Add user message
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: message,
+        isUser: true,
+        timestamp: new Date(),
+      };
+
+      // Add bot response
+      const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'This is a simulated AI response. The actual API integration will be implemented here.',
+        content: botResponse,
         isUser: false,
         timestamp: new Date(),
       };
@@ -82,12 +145,25 @@ const ChatPage: React.FC = () => {
           chat.id === activeChat
             ? {
                 ...chat,
-                messages: [...chat.messages, aiResponse],
+                messages: [...chat.messages, userMessage, botMessage],
               }
             : chat
         )
       );
-    }, 1000);
+
+      setMessage('');
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Handle chart and table data if present
+      if (chart || table) {
+        setShowAnalysis(true);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -97,14 +173,29 @@ const ChatPage: React.FC = () => {
     }
   };
 
-  const createNewChat = () => {
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      title: 'New Chat',
-      messages: [],
-    };
-    setChats(prevChats => [...prevChats, newChat]);
-    setActiveChat(newChat.id);
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const createNewChat = async () => {
+    try {
+      const response = await axios.post('http://localhost:8000/create-thread', 
+        { thread_type: 'New Chat' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const newThread = response.data;
+      const newChat: Chat = {
+        id: newThread.thread_id.toString(),
+        title: newThread.thread_type,
+        messages: [],
+      };
+      setChats(prevChats => [...prevChats, newChat]);
+      setActiveChat(newChat.id);
+    } catch (error) {
+      console.error('Error creating new chat:', error);
+    }
   };
 
   return (
@@ -174,6 +265,19 @@ const ChatPage: React.FC = () => {
         </ChatMessages>
 
         <ChatInput>
+          <FileInput
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+          <FileUploadButton
+            onClick={() => fileInputRef.current?.click()}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            📎
+          </FileUploadButton>
           <Input
             value={message}
             onChange={e => setMessage(e.target.value)}
