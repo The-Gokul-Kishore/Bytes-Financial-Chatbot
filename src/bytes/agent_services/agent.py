@@ -13,7 +13,9 @@ from bytes.database.db import DBManager
 # from bytes.retriver.PostgresMessageHistory import PostgresMessageHistory
 from bytes.retriver.retriver import  Retriver
 #from bytes.agent_services.bedrock_llm_wrapper import BedrockLLM
-from bytes.agent_services.agent_schemas import ExtractedInsights
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+from bytes.agent_services.agent_schemas import ExtractedInsights, FinancialOutput
 parser = PydanticOutputParser(pydantic_object=ExtractedInsights)
 
 llm = ChatGoogleGenerativeAI(
@@ -145,7 +147,36 @@ class Agent_Service:
             description="Use this to retrieve the full content of a specific document excerpt specifed by doc_id in the document."
         )
         return get_doc_id_excerpt
+    def fix_output(self,output:str)->dict:
+        try:
+            parser = PydanticOutputParser(pydantic_object=FinancialOutput)
+            fix_prompt_template = PromptTemplate(
+                    template="""
+                    You're a strict JSON formatter.
 
+                    Here is a messy or partially structured response:
+                    ----------------
+                    {response}
+                    ----------------
+
+    Your job is to convert it to valid JSON matching this schema:
+    {{"text_explanation": str, "chart_json": Optional[str], "table_json": Optional[dict]}}
+
+                    Return only a valid JSON object. No text, no commentary, no extra formatting.
+                    """,
+                    input_variables=["response"]
+
+            )
+            refine_chain = LLMChain(
+                llm = llm,
+                prompt=fix_prompt_template,
+                output_parser=parser
+            )
+            structured_output = refine_chain.run({"response": output})
+            return structured_output
+        except Exception as e:
+            print("error:", e)
+            return f"error: {e}"
     def run_agent(self,query: str, thread_id: int,db:Session,thread_specific_call:bool=False)->dict:
         """
         Run the main agent of the financial insight agent
@@ -167,9 +198,8 @@ class Agent_Service:
         tools_for_main_agent = [self.build_extract_pdf_insights(thread_id=passing_id), self.build_page_excerpt_tool(thread_id=passing_id), self.build_repl_tool()]
         main_agent_prompt = """
             You are a master financial analyst. Your job is to provide a comprehensive answer to the user's query by orchestrating specialized tools.
-
             WORKFLOW:
-            1.  First, you MUST use the extract_pdf_insights tool to get the related data from the documents(this has all the documents).
+            1.  First, you MUST use the extract_pdf_insights tool to get the related data from the document.
             2.  Review the explanation from the output of the first tool.
             3.  For charts:
                 i.  Write Python code using plotly to create a chart.
@@ -177,9 +207,16 @@ class Agent_Service:
             4.  Finally, synthesize the explanation and chart into a full answer.
             pls finish this within 3 calls if more calls are needed return "I cannot answer this question, please try another one"
             Final output format:
-            <text_explanation></text_explanation>
-            <chart_json>...</chart_json>
-            <table_json>...</table_json>
+            {
+            "text_explanation": "your explanation here",
+            "chart_json": "...plotly fig.to_json() string here...",
+            "table_json": {...}  // if not applicable, return null
+            }
+
+            ⚠️ DO NOT include markdown, HTML, or extra commentary — return only the JSON object.
+            ⚠️ If the answer can't be completed in 3 steps, respond with:
+            { "text_explanation": "I cannot answer this question, please try another one", "chart_json": null, "table_json": null }
+
             Start!
             """
         main_agent = initialize_agent(
@@ -197,6 +234,8 @@ class Agent_Service:
         #      history_messages_key="chat_history",
         # )
         try:
+                print("\n" + "="*50)
+                print("🤖 AGENT PROMPT:")
                 response = main_agent.invoke({"input": query},
                                            config={"configurable":{"session_id":str(passing_id)}}
                                            )
@@ -206,24 +245,24 @@ class Agent_Service:
                 if(response.get("output") is None):
                     return {"text_explanation": "I cannot answer this question, please try another one", "chart_json": None, "table_json": None}
                 print(response.get('output'))
-                output = str(response.get('output'))
-                if(output.split("<text_explanation>")== ""):
-                    text_explanation = output
-                else:    
-                    text_explanation = output.split("<text_explanation>")[1].split("</text_explanation>")[0]
-                if(output.split("<chart_json>")== ""):
-                    chart_json = ""
-                else:
-                    chart_json = output.split("<chart_json>")[1].split("</chart_json>")[0]
-                if(output.split("<table_json>")== ""):
-                    table_json = ""
-                else:
-                    table_json = output.split("<table_json>")[1].split("</table_json>")[0]
-                return {
-                    "text_explanation": text_explanation,
-                    "chart_json": chart_json if len(chart_json) > 0 else None,
-                    "table_json": table_json if len(table_json) > 0 else None
-                }     
+                output_raw = response.get('output')
+                try:
+                    output_raw = str(output_raw)
+                    output = self.fix_output(output=output_raw)
+                    output = json.loads(output) if isinstance(output, str) else output
+                    return output
+                except json.JSONDecodeError:
+                    print("⚠️ Model did not return valid JSON!")
+                    return {
+                        "text_explanation": "Model returned invalid JSON. Try another query.",
+                        "chart_json": None,
+                        "table_json": None
+                    }
+                # return {
+                #     "text_explanation": output.get("text_explanation"),
+                #     "chart_json": chart_json if len(chart_json) > 0 else None,
+                #     "table_json": table_json if len(table_json) > 0 else None
+                # }     
         except Exception as e:
                 print("error:", e)
                 print(f"\nAn error occurred in the main agent execution: {traceback.format_exc()}")
@@ -232,4 +271,5 @@ if __name__ == "__main__":
     db_manager = DBManager()
     with db_manager.session() as db:
         agent = Agent_Service(model="gemini-1.5-flash",db_manager=db_manager)
-        agent.run_agent(query="What is a the report about?",db=db, thread_id=1)
+        response = agent.run_agent(query="give graph from data, what is the total revenue?",db=db, thread_id=1)
+        print("response:", response)

@@ -46,7 +46,7 @@ export const MessageBubble = styled(motion.div)<{ isUser?: boolean }>`
   border-radius: 1rem;
   background: ${props => props.isUser ? 'linear-gradient(45deg, #00ff87, #60efff)' : 'rgba(255, 255, 255, 0.1)'};
   color: ${props => props.isUser ? '#1a1a2e' : 'white'};
-  align-self: ${props => props.isUser ? 'flex-end' : 'flex-start'};
+  align-self: ${({ isUser }) => (isUser ? 'flex-end' : 'flex-start')};
   word-wrap: break-word;
 `;
 

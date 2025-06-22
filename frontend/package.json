@@ -17,8 +17,10 @@
     "@tanstack/react-query": "^5.80.6",
     "axios": "^1.6.7",
     "framer-motion": "^11.18.2",
+    "plotly.js": "^3.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.30.1"
   },
   "devDependencies": {

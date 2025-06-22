@@ -136,7 +136,7 @@ def run_risk_frontend():
     import subprocess 
 
     try:
-        path = Path("./bytes/risk_analyser/frontend")
+        path = Path("./src/bytes/risk_analyser/frontend")
         console.print("[bold green]Starting frontend[/]")
         command = ["npm","run","dev"]
         subprocess.run(command,cwd=path,check=True,shell=True)
