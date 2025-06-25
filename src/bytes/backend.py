@@ -1,6 +1,6 @@
 import os
 from logging import getLogger
-from bytes.agent_services.agent import Agent_Service
+from bytes.agent_services.agent import AgentRunner
 import uvicorn
 from bytes.authenticator_service import Authenticator
 from bytes.database import crud
@@ -36,7 +36,7 @@ auth_service = Authenticator(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 router = APIRouter(dependencies=[Depends(auth_service.verify_token)])
 parser = Retriver()
-
+agent_runner = AgentRunner(model_name=os.getenv("MODEL_TYPE", "none"), api_key=os.getenv("GROQ_API_KEY"))
 def get_db_manager():
     """
     Returns a singleton instance of the DBManager class.
@@ -140,8 +140,8 @@ async def query(
             raise HTTPException(
                 status_code=400, detail="Thread does not belong to user"
             )
-        agent= Agent_Service(model="gemini-1.5-flash",db_manager=session)
-        agent_response = agent.run_agent(query.query,thread_id=query.thread_id,db=session,thread_specific_call=query.thread_specific_call)
+
+        agent_response = agent_runner.run(user_query=query.query, thread_id=0)
         chatmanager = crud.ChatManager()
         chatmanager.create_chat_by_username(
             username=userToken.username,
@@ -150,7 +150,7 @@ async def query(
             db=session,
         )
         response_json = {
-            "response": agent_response["text_explanation"],
+            "response": agent_response["text"],
             "chart": agent_response["chart_json"],
             "table": agent_response["table_json"],
             # "message_id": bot_response.chat_id,

@@ -12,11 +12,8 @@ from bytes.retriver.PostgresDocStore import PostgresDocStore
 from langchain.retrievers.multi_vector import MultiVectorRetriever
 from langchain.schema.document import Document
 from langchain_community.vectorstores.pgvector import PGVector
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
-
-print("Loading Parser...")
-
-
 class Retriver:
     _instance = None
     _lock = threading.Lock()
@@ -90,24 +87,56 @@ class Retriver:
         self, doc, doc_name: str, table_map: dict, image_map: dict,thread_id:int=0,
     ):
         documents = []
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=900,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", ".", " "]
+        )
         for i, page in enumerate(doc):
             print("Processing page", i + 1)
             page_num = i + 1
             text = page.get_text()
             tables = table_map.get(page_num, "")
-            image_b64 = image_map.get(page_num, "")
 
-            content = f"{text}\n\n---TABLES---\n{tables}\n\n[IMAGE EMBEDDED BASE64]"
-            metadata = {
-                "doc_id": f"{doc_name}_page_{page_num}",
+            chunks = text_splitter.split_text(text)
+            for j,chunk in enumerate(chunks):
+                if(len(chunk.strip("\n").strip(" "))<1):
+                    continue
+                metadata = {
+                "doc_id": f"{doc_name}_page_{page_num}_chunk_{j}",
                 "page_number": page_num,
                 "doc_name": doc_name,
-                "image_b64": image_b64,
                 "thread_id":thread_id
-            }
-
-            documents.append(Document(page_content=content, metadata=metadata))
+                }
+                print("page;",page_num,"chunk:",j,"content:",chunk)
+                documents.append(Document(page_content=chunk, metadata=metadata))
+            if(tables):
+                for k, table in enumerate(tables):
+                    if(len(table.strip("\n").strip(" "))>1):
+                        print(table,"k:",k,"page_num:",page_num)
+                        documents.append(Document(
+                            page_content=f"---TABLE---\n{table}",
+                            metadata={
+                                "doc_id": f"{doc_name}_page_{page_num}_table_{k}",
+                                "page_number": page_num,
+                                "table_number": k,
+                                "doc_name": doc_name,
+                                "thread_id": thread_id
+                            }
+                        ))
+        print(len(documents))
         return documents
+    def batch_add_documents(self, documents, batch_size=50):
+        print(len(documents))
+
+        for i in range(0, len(documents), batch_size):
+            if(documents[i:i+batch_size]==[]):
+                continue
+            print("i:",i)
+            batch = documents[i:i+batch_size]
+
+            print(f"Inserting batch {i} - {i + batch_size}...")
+            self.vectorstore.add_documents(batch)
 
     def parse(self, load_path: Path,  thread_id:int=0):
         doc = fitz.open(str(load_path))
@@ -119,7 +148,8 @@ class Retriver:
             doc, doc_name, table_map, image_map,thread_id=thread_id
         )
 
-        self.vectorstore.add_documents(combined_docs)
+        self.batch_add_documents(combined_docs)
+
         self.docstore.mset(
             [(doc.metadata["doc_id"], doc.page_content) for doc in combined_docs]
         )
@@ -133,8 +163,8 @@ class Retriver:
         if(if_delete):
             self.vectorstore.delete(delete_all=True)
 
-    def retrive(self,query:str,thread_id:int=0):
-        return self.retriever.vectorstore.similarity_search(query, k=10,filter={"thread_id":thread_id})
+    def retrive(self,query:str,thread_id:int=0,k:int=10):
+        return self.retriever.vectorstore.similarity_search(query, k=k,filter={"thread_id":thread_id})
 if __name__ == "__main__":
     parser = Retriver()
     parser.parse(
