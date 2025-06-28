@@ -2,7 +2,7 @@
 # Bytes – DTCC AI Hackathon 2025 Submission
 
 An AI-powered financial insight assistant that enables users to query PDFs (like annual reports) using natural language.
-Built using LangChain, PGVector, FastAPI, and Python agents, Bytes extracts tables, text, and embedded visuals from PDFs and responds with structured, explainable answers.
+Built using LangChain,PydanticAI, PGVector, FastAPI, and Python agents, Bytes extracts tables, text, and embedded visuals from PDFs and responds with structured, explainable answers.
 
 ---
 
@@ -15,7 +15,7 @@ Self-Service Investigation (Chat NLP): Enable users to interact with data and pe
 
 | Layer          | Tools/Frameworks                            |
 | -------------- | ------------------------------------------- |
-| Language Model | LangChain                                   |
+| Language Model | PydanticAI,LangChain                        |
 | Vector Store   | PostgreSQL with pgvector                    |
 | Embeddings     | HuggingFace (MiniLM-L6-v2)                  |
 | Backend API    | FastAPI + JWT Auth                          |
